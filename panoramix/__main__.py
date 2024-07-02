@@ -9,7 +9,6 @@ from panoramix.decompiler import decompile_address, decompile_bytecode
 
 logger = logging.getLogger(__name__)
 
-
 def parse_args(args):
     parser = argparse.ArgumentParser(description="EVM decompiler.")
     parser.add_argument(
@@ -28,6 +27,8 @@ def parse_args(args):
     parser.add_argument(
         "address_or_bytecode",
         help="An ethereum address, a comma-separated list of ethereum addresses, or `-` to read bytecode from stdin.",
+        nargs='?',
+        default="-",
     )
     parser.add_argument(
         "--function",
@@ -37,14 +38,26 @@ def parse_args(args):
     )
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--explain", action="store_true")
+    parser.add_argument(
+        "--file",
+        help="Path to a file containing bytecode. This will override stdin if both are provided.",
+        required=False,
+    )
+    parser.add_argument(
+        "--output",
+        help="Path to output file where decompilation results will be written.",
+        required=False,
+    )
 
     return parser.parse_args(args)
-
 
 def print_decompilation(this_addr, args):
     function_name = args.function or None
 
-    if this_addr == "-":
+    if args.file:
+        with open(args.file, 'r') as file:
+            this_addr = file.read().strip()
+    elif this_addr == "-":
         this_addr = sys.stdin.read().strip()
 
     if len(this_addr) == 42:
@@ -52,8 +65,11 @@ def print_decompilation(this_addr, args):
     else:
         decompilation = decompile_bytecode(this_addr, function_name)
 
-    print(decompilation.text)
-
+    if args.output:
+        with open(args.output, 'w') as file:
+            file.write(decompilation.text)
+    else:
+        print(decompilation.text)
 
 def main():
     args = parse_args(sys.argv[1:])
@@ -74,10 +90,8 @@ def main():
                 print_decompilation(args.address_or_bytecode, args)
             finally:
                 profile.dump_stats("panoramix.prof")
-
     else:
         print_decompilation(args.address_or_bytecode, args)
-
 
 if __name__ == "__main__":
     main()
